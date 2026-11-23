@@ -1,24 +1,25 @@
-      - name: Cek versi SuSFS dan API
+      - name: Diagnosa simbol SuSFS
         shell: bash
         run: |
-          echo "=== Versi SuSFS ==="
-          grep -rn "SUSFS_VERSION\|SUSFS_VARIANT" include/linux/susfs*.h | head
-
-          echo "=== fs/stat.c 25-70 ==="
-          sed -n '25,70p' fs/stat.c
-          echo "=== fs/stat.c 190-250 ==="
-          sed -n '190,250p' fs/stat.c
-
-          echo "=== Simbol SuSFS yang dipakai selinux ==="
-          grep -rn "susfs\|ksu" security/selinux/*.c | head -30
-
-          echo "=== Kconfig SuSFS ==="
-          grep -rn "config KSU_SUSFS" --include=Kconfig* . | head -30
-
-          echo "=== susfs.c memanggil simbol KSU apa ==="
-          grep -n "ksu_\|susfs_is_current_ksu\|is_manager" fs/susfs.c | head -30
-
-          echo "=== Header tiga workflow lain ==="
-          for f in susfs-rebase.yml build-clang19.yml build-susfs-v240.yml; do
-            echo "--- $f ---"; head -20 .github/workflows/$f
+          for s in susfs_get_data_path susfs_open_redirect_spoof_vfs_statfs \
+                   susfs_open_redirect_spoof_seq_show statfs_by_dentry_wrapper \
+                   calculate_f_flags_wrapper fake_state; do
+            echo "=================== $s"
+            grep -rn "$s" --include=*.c --include=*.h . | head -8
           done
+
+          echo "=== Guard di sekitar susfs_get_data_path di susfs.c ==="
+          grep -n "^#if\|^#endif\|^#else\|susfs_get_data_path\|open_redirect_spoof" fs/susfs.c | head -80
+
+          echo "=== Kconfig SuSFS yang tersedia ==="
+          grep -rhn "^config KSU_SUSFS" --include=Kconfig* . | sort -u
+
+          echo "=== fs/Makefile ==="
+          grep -n "susfs" fs/Makefile
+
+          echo "=== Hasil gki_defconfig + olddefconfig ==="
+          make O=out ARCH=arm64 gki_defconfig >/dev/null 2>&1
+          grep -n "SUSFS\|CONFIG_KSU" out/.config | head -40
+
+          echo "=== Versi ==="
+          grep -rn "SUSFS_VERSION" include/linux/susfs*.h
