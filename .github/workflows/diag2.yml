@@ -1,0 +1,24 @@
+      - name: Cek versi SuSFS dan API
+        shell: bash
+        run: |
+          echo "=== Versi SuSFS ==="
+          grep -rn "SUSFS_VERSION\|SUSFS_VARIANT" include/linux/susfs*.h | head
+
+          echo "=== fs/stat.c 25-70 ==="
+          sed -n '25,70p' fs/stat.c
+          echo "=== fs/stat.c 190-250 ==="
+          sed -n '190,250p' fs/stat.c
+
+          echo "=== Simbol SuSFS yang dipakai selinux ==="
+          grep -rn "susfs\|ksu" security/selinux/*.c | head -30
+
+          echo "=== Kconfig SuSFS ==="
+          grep -rn "config KSU_SUSFS" --include=Kconfig* . | head -30
+
+          echo "=== susfs.c memanggil simbol KSU apa ==="
+          grep -n "ksu_\|susfs_is_current_ksu\|is_manager" fs/susfs.c | head -30
+
+          echo "=== Header tiga workflow lain ==="
+          for f in susfs-rebase.yml build-clang19.yml build-susfs-v240.yml; do
+            echo "--- $f ---"; head -20 .github/workflows/$f
+          done
