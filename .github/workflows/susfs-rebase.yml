@@ -1,0 +1,66 @@
+name: SuSFS patch (fuzz) to branch
+
+# Taruh file ini di repo KERNEL: thaliban04/KagamiChihiro-Kernel
+# Path: .github/workflows/susfs-rebase.yml
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BASE_BRANCH: chihiro-rebase
+  WORK_BRANCH: susfs-wip
+  SUSFS_BRANCH: gki-android12-5.10
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout kernel (branch dasar)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_BRANCH }}
+          fetch-depth: 0
+
+      - name: Apply SuSFS dengan fuzz
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          git clone --depth=1 -b "$SUSFS_BRANCH" \
+            https://gitlab.com/simonpunk/susfs4ksu.git /tmp/susfs
+          P=/tmp/susfs/kernel_patches
+          echo "SuSFS commit: $(git -C /tmp/susfs rev-parse HEAD)"
+
+          cp "$P/fs/susfs.c" fs/
+          cp "$P/include/linux/susfs.h" include/linux/
+          cp "$P/include/linux/susfs_def.h" include/linux/
+
+          patch -p1 -F3 --no-backup-if-mismatch \
+            < "$P/50_add_susfs_in_gki-android12-5.10.patch" | tee /tmp/patch.log
+
+          echo "=============================================="
+          echo "File .rej (hunk yang GAGAL dan perlu diedit manual):"
+          find . -name '*.rej' | sort | tee /tmp/rej.list
+          echo "Jumlah file .rej: $(wc -l < /tmp/rej.list)"
+
+          {
+            echo "### Hasil patch SuSFS"
+            echo "Jumlah file .rej: $(wc -l < /tmp/rej.list)"
+            echo '```'
+            cat /tmp/rej.list
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push ke branch susfs-wip
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout -b "$WORK_BRANCH"
+          git add -A
+          git commit -m "WIP: SuSFS patch (fuzz), hunk gagal ada di file .rej"
+          git push -f origin "$WORK_BRANCH"
