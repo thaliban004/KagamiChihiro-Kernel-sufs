@@ -12,26 +12,28 @@ jobs:
           ref: chihiro-rebase
           fetch-depth: 1
 
-      - name: Cek isi repo
+      - name: Diagnosa simbol SuSFS
         shell: bash
         run: |
-          echo "=== Workflow files di branch ini ==="
-          ls -la .github/workflows/ || true
+          for s in susfs_get_data_path susfs_open_redirect_spoof_vfs_statfs \
+                   susfs_open_redirect_spoof_seq_show statfs_by_dentry_wrapper \
+                   calculate_f_flags_wrapper fake_state; do
+            echo "=================== $s"
+            grep -rn "$s" --include=*.c --include=*.h . | head -8
+          done
 
-          echo "=== File SuSFS ada? ==="
-          ls -la fs/susfs.c include/linux/susfs*.h 2>&1 || true
+          echo "=== Guard di sekitar susfs_get_data_path di susfs.c ==="
+          grep -n "^#if\|^#endif\|^#else\|susfs_get_data_path\|open_redirect_spoof" fs/susfs.c | head -80
 
-          echo "=== susfs_security_context_to_sid ==="
-          grep -rn "susfs_security_context_to_sid" --include=*.c --include=*.h . | head -20 || true
+          echo "=== Kconfig SuSFS yang tersedia ==="
+          grep -rhn "^config KSU_SUSFS" --include=Kconfig* . | sort -u
 
-          echo "=== ksu_handle_stat di fs/stat.c ==="
-          grep -n "ksu_handle_stat\|susfs_sus_kstat_spoof_generic_fillattr" fs/stat.c || true
+          echo "=== fs/Makefile ==="
+          grep -n "susfs" fs/Makefile
 
-          echo "=== File .rej / .orig ==="
-          find . \( -name "*.rej" -o -name "*.orig" \) | head -50
+          echo "=== Hasil gki_defconfig + olddefconfig ==="
+          make O=out ARCH=arm64 gki_defconfig >/dev/null 2>&1
+          grep -n "SUSFS\|CONFIG_KSU" out/.config | head -40
 
-          echo "=== drivers/kernelsu ==="
-          ls -la drivers/kernelsu 2>&1 | head || true
-
-          echo "=== Referensi KSU di Makefile/Kconfig ==="
-          grep -n "kernelsu" drivers/Makefile drivers/Kconfig || true
+          echo "=== Versi ==="
+          grep -rn "SUSFS_VERSION" include/linux/susfs*.h
