@@ -1,0 +1,37 @@
+name: Diagnose SuSFS state
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chihiro-rebase
+          fetch-depth: 1
+
+      - name: Cek isi repo
+        shell: bash
+        run: |
+          echo "=== Workflow files di branch ini ==="
+          ls -la .github/workflows/ || true
+
+          echo "=== File SuSFS ada? ==="
+          ls -la fs/susfs.c include/linux/susfs*.h 2>&1 || true
+
+          echo "=== susfs_security_context_to_sid ==="
+          grep -rn "susfs_security_context_to_sid" --include=*.c --include=*.h . | head -20 || true
+
+          echo "=== ksu_handle_stat di fs/stat.c ==="
+          grep -n "ksu_handle_stat\|susfs_sus_kstat_spoof_generic_fillattr" fs/stat.c || true
+
+          echo "=== File .rej / .orig ==="
+          find . \( -name "*.rej" -o -name "*.orig" \) | head -50
+
+          echo "=== drivers/kernelsu ==="
+          ls -la drivers/kernelsu 2>&1 | head || true
+
+          echo "=== Referensi KSU di Makefile/Kconfig ==="
+          grep -n "kernelsu" drivers/Makefile drivers/Kconfig || true
